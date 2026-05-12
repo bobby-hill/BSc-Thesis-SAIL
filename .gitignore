@@ -1,5 +1,7 @@
 .env
 .idea/
+conf/google/google-key.json
+conf/google/*.json
 *.env
 *google-key*.json
 *service-account*.json

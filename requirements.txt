@@ -2,3 +2,4 @@ social-interaction-cloud
 scipy
 google-api-python-client
 google-cloud-dialogflow
+numpy
