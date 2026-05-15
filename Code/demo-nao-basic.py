@@ -18,6 +18,9 @@ from sic_framework.services.dialogflow.dialogflow import (
     GetIntentRequest,
 )
 
+# Import local LLM
+from llm_backend import LLMAgent
+
 class NaoBasic(SICApplication):
     ### some parts from sic_application: demo_nao_voice_detection.py ###
     def __init__(self):
@@ -33,6 +36,9 @@ class NaoBasic(SICApplication):
         self.nao = None
         self.dialogflow = None
         self.session_id = np.random.randint(10000)
+
+        # instantiate llm agent
+        self.llm_agent = LLMAgent(model="llama3.2:3b")
 
         # configure logging like in demos
         self.set_log_level(sic_logging.INFO)
@@ -82,6 +88,11 @@ class NaoBasic(SICApplication):
         self.logger.info("Dialogflow is ready.")
 
     def extract_transcript(self, reply):
+        """
+        Extract transcript from a dialogflow reply, if there is one.
+        :param reply:
+        :return:
+        """
         response = getattr(reply, "response", None)
 
         if not hasattr(response, "query_result") or response is None:
@@ -92,9 +103,12 @@ class NaoBasic(SICApplication):
 
         return None
 
+    # fallback function to get the fulfillment message from dialogflow (hard coded small talk)
     def extract_fulfillment_message(self, reply):
+        """
+        Extracts fulfillment message from a dialogflow reply, if there is one.
+        """
         if hasattr(reply, "fulfillment_message") and reply.fulfillment_message:
-            self.logger.info("[Nao reply]:" + str(reply.fulfillment_message))
             return reply.fulfillment_message
 
         return None
@@ -102,28 +116,52 @@ class NaoBasic(SICApplication):
     def listen_once(self):
         """
         Get Dialogflow to transcribe the next thing.
+        Big gate block to check if all the return values were received.
         """
 
         self.logger.info("[listen_once]: Listening...")
 
         try:
             reply = self.dialogflow.request(GetIntentRequest(self.session_id))
+            if hasattr(reply, "response"):
+                if hasattr(reply.response, "query_result"):
+                    reply = reply.response.query_result
+                    self.logger.info(f"[DEBUG]: {reply}")
         except Exception as e:
             self.logger.error(f"[listen_once]: Dialogflow request failed: {e}")
-            return None, None
+            return None, None, None, None
 
-        transcript = self.extract_transcript(reply)
-        fulfillment_message = self.extract_fulfillment_message(reply)
+        transcript = getattr(reply, "query_text", None)
+        fulfillment_message = getattr(reply, "fulfillment_text", None)
+        action = getattr(reply, "action", None)
+        if hasattr(reply, "intent"):
+            if hasattr(reply.intent, "display_name"):
+                intent = reply.intent.display_name
+        else:
+            intent = None
 
+        # use if else gates to check for each component.
+        # intent and action can be available independently depending on context
+        # so we need to check for both, either, or none
         if transcript:
             if fulfillment_message:
-                self.logger.info("[listen_once]: Returning transcript and fulfillment message.")
-                return transcript, fulfillment_message
-            self.logger.info(f"[listen_once]: No fulfillment message, returning transcript.")
-            return transcript, None
-
-        self.logger.info("[listen_once]: No Transcript or fulfillment message.")
-        return None, None
+                if intent and action:
+                    self.logger.info("[listen_once]: Returning all df returns")
+                    return transcript, fulfillment_message, str(intent), str(action)
+                elif intent or action:
+                    if intent:
+                        self.logger.info("[listen_once]: Returning everything except action")
+                        return transcript, fulfillment_message, str(intent), None
+                    self.logger.info("[listen_once]: Returning everything except intent")
+                    return transcript, fulfillment_message, None, str(action)
+                else:
+                    self.logger.info(f"[listen_once]: No intent or action, returning transcript and fulfillment message.")
+                    return transcript, fulfillment_message, None, None
+            else:
+                self.logger.info(f"[listen_once]: No intent and fulfillment message, returning transcript")
+                return transcript, None, None, None
+        self.logger.info("[listen_once]: No Transcript, Fulfillment message, or Intent.")
+        return None, None, None, None
 
     def say(self, text):
         """
@@ -137,6 +175,21 @@ class NaoBasic(SICApplication):
 
         return None
 
+    # identify if intent is known
+    def df_reply(self,intent: str, action: str):
+        """
+        Dialog Flow intent/action check.
+        Check if the intent or action returned for the user utterance is known.
+        Used to decide in run() whether to use the fulfillment message or not.
+        """
+        intents = ["Help Intent", "Default Welcome Intent"]
+
+        if action and action.startswith("smalltalk"):
+            return True
+        elif intent in intents:
+            return True
+        return False
+
     def run(self):
         """
         Main run loop.
@@ -146,18 +199,39 @@ class NaoBasic(SICApplication):
         self.logger.info("[run]: Starting NAO TTS demo...")
         self.logger.info("[run]: Press Ctrl+C to stop.")
 
-        self.say("Hello, I am ready to listen.")
+        self.say("Hello there!")
 
         try:
             while not self.shutdown_event.is_set():
-                transcript,fulfillment_message = self.listen_once()
+                transcript,fulfillment_message, intent, action = self.listen_once()
 
-                if transcript:
-                    self.logger.info(f"[run]: Transcript: {transcript}")
-                    # Later LLM logic will be added here
-                if fulfillment_message:
-                    self.logger.info("[run]: Requesting nao to say fulfillment message.")
-                    self.say(fulfillment_message)
+                if transcript: # if dialogflow successfully transcribed the speech
+                    self.logger.info(f"[run]: Transcript: {transcript}") # log the transcription
+                    self.llm_agent.append_history(role="user", text=str(transcript)) # append user utterance to conv history
+
+                    if self.df_reply(intent, action) and fulfillment_message: # if there's a known intent or action, we can use smalltalk from dialogflow
+                        self.logger.info("[run]: Intent identified, using fulfillment message.")
+                        self.say(fulfillment_message)
+                        self.llm_agent.append_history(role="assistant", text=str(fulfillment_message))
+
+                    else: # if no intent, we need to call llm for the response
+                        self.logger.info(f"[run]: Sending transcript to LLM Agent...")
+                        self.say("Let me think..")
+                        response = self.llm_agent.ask(transcript) # try to get response from llm
+
+                        if response: # if there's a response
+                            self.logger.info(f"[run]: LLM Response: {response}") # log response
+                            self.logger.info(f"[run]: Requesting nao to say LLM response")
+                            self.say(response) # get nao to say it
+
+                        elif fulfillment_message: # if there's no response, try fulfillment message
+                            self.logger.info("[run]: Requesting nao to say fulfillment message.")
+                            self.say(fulfillment_message) # get nao to say fulfillment message
+                            self.llm_agent.append_history(role="assistant",text=str(fulfillment_message))
+
+                        else: # if nothing works use fallback
+                            self.logger.info("[run]: No LLM response or Fulfillment message. Using fallback...")
+                            self.say("I had trouble coming up with a response...")
         except KeyboardInterrupt:
             self.logger.info("[run]: Keyboard interrupt. Shutting down...")
         except Exception as e:
