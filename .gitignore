@@ -2,6 +2,7 @@
 .idea/
 conf/google/google-key.json
 conf/google/*.json
+nao_ips.txt
 *.env
 *google-key*.json
 *service-account*.json

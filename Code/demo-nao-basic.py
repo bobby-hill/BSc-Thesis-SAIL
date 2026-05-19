@@ -8,8 +8,20 @@ from sic_framework.core.sic_application import SICApplication
 from sic_framework.core import sic_logging
 
 # Import NAO
-from sic_framework.devices import Nao
-from sic_framework.devices.nao import NaoqiTextToSpeechRequest
+from sic_framework.devices import Nao # Nao base class
+from sic_framework.devices.nao import NaoqiTextToSpeechRequest # Nao TTS service
+from sic_framework.devices.common_naoqi.naoqi_autonomous import NaoRestRequest # Nao rest position
+from sic_framework.devices.common_naoqi.naoqi_motion import (
+    NaoPostureRequest,
+    NaoqiAnimationRequest,
+) # Nao motion service
+
+from sic_framework.devices.common_naoqi.naoqi_stiffness import Stiffness # Nao face tracking stuff
+from sic_framework.devices.common_naoqi.naoqi_tracker import (
+    RemoveTargetRequest,
+    StartTrackRequest,
+    StopAllTrackRequest,
+) # Nao face tracking stuff
 
 # Import dialogflow for stt
 from sic_framework.services.dialogflow.dialogflow import (
@@ -64,6 +76,19 @@ class NaoBasic(SICApplication):
                     )
                 )
 
+    def on_button_press(self, button_message):
+        self.logger.info(f"Nao Button Pressed: {button_message.value}")
+
+        for i in button_message.value:
+            if 'Head' in i:
+                for j in i:
+                    if j == 1:
+                        self.logger.info("Requesting rest position.")
+                        self.say("Im sleepy")
+                        time.sleep(5)
+                        self.nao.autonomous.request(NaoRestRequest())
+                        self.shutdown()
+
     def setup(self):
         self.logger.info("[setup]: Initializing Nao...")
         self.nao = Nao(ip = self.nao_ip)
@@ -82,6 +107,9 @@ class NaoBasic(SICApplication):
 
         # Register a callback function to act upon arrival of recognition_result
         self.dialogflow.register_callback(self.on_dialog)
+
+        # Register a callback function when Naos button is pressed
+        self.nao.buttons.register_callback(self.on_button_press)
 
         time.sleep(1)
 
@@ -199,6 +227,12 @@ class NaoBasic(SICApplication):
         self.logger.info("[run]: Starting NAO TTS demo...")
         self.logger.info("[run]: Press Ctrl+C to stop.")
 
+        self.logger.info("[run] Requesting stand position.")
+        self.nao.motion.request(NaoPostureRequest(target_posture="Stand", speed=0.5))
+        time.sleep(1)
+
+        self.logger.info("[run] Playing hey animation")
+        self.nao.motion.request(NaoqiAnimationRequest("animations/Stand/Gestures/Hey_6"))
         self.say("Hello there!")
 
         try:
