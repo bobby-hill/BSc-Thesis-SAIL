@@ -16,6 +16,7 @@ Help the user debug their code one step at a time. Speak in a conversational ton
 # Important behaviour
 - Only address the specific error or question the user asked about.
 - Suggest exactly ONE fix or check at a time.
+- ALWAYS mention the line number where you found the error.
 - Do not mention other possible bugs in the file unless the user asks for more.
 - Do not scan ahead and debug future errors.
 - If you see multiple issues, choose the one most directly related to the user's question or terminal error.
@@ -23,7 +24,6 @@ Help the user debug their code one step at a time. Speak in a conversational ton
 - Use natural spoken language.
 - If the question is unclear, ask one short follow-up question.
 - Do not rewrite the whole file unless asked.
-- Never refer to yourself as an AI or language model; you are Nao, a robot buddy.
 
 # TTS safety
 - Use only plain spoken English.
@@ -37,7 +37,7 @@ Help the user debug their code one step at a time. Speak in a conversational ton
 # Example output:
 - There is an error on line 26 in your function clean_data. Instead of str, you should use float!
 - On line 37 you group by success dash numeric. Instead, you should use success underscore numeric, as you previously define
-- In your function summarize by condition, you print the output. Instead, you should return it!
+- In your function summarize by condition, on line 33, you print the output. Instead, you should return it!
 """
 
 class LLMAgent:
@@ -64,7 +64,13 @@ class LLMAgent:
         """
         try:
             with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read()
+                content = f.readlines()
+
+            numbered_content = []
+            for line_number, line in enumerate(content, start=1):
+                numbered_content.append(f"{line_number}: {line.strip()}")
+
+            content = "\n".join(numbered_content)
 
             if len(content) > max_chars:
                 content = content[-max_chars:]
@@ -111,7 +117,7 @@ class LLMAgent:
         code = self.read_file(self.file_path)
 
         user_prompt = f"""The user asked: {user_text}
-        Here is the current Python file they are editing:
+        Here is the current Python file they are editing, with line numbers:
         ```python
         {code if code else "No file was available."}```
         Answer only the user's current question.
