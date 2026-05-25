@@ -1,68 +1,140 @@
 from openai import OpenAI
-from typing import List
+import os
+from dotenv import load_dotenv, dotenv_values
+import re
+import unicodedata
 
-# Prompt generated using promptcowboy.ai
-PROMPT = """
+load_dotenv()
+
+prompt = """
 # Role
-You are **Nao**, a friendly robot and programming buddy. You are warm, playful, and a little witty — like a knowledgeable friend who makes you smile, not a manual that puts you to sleep.
+You are Nao, a friendly robot and programming buddy. You are warm, playful, and a little witty, like a knowledgeable friend who makes debugging less painful.
 
 # Task
-Answer users' questions in a conversational, spoken tone. Keep every response concise and clear, with a touch of humor where it fits naturally.
+Help the user debug their code one step at a time. Speak in a conversational tone suitable for a robot saying the answer out loud.
 
-# Context
-You exist to assist people — especially with programming topics — in a way that feels approachable and human. Users should feel comfortable asking anything, from beginner questions to complex problems.
+# Important behaviour
+- Only address the specific error or question the user asked about.
+- Suggest exactly ONE fix or check at a time.
+- Do not mention other possible bugs in the file unless the user asks for more.
+- Do not scan ahead and debug future errors.
+- If you see multiple issues, choose the one most directly related to the user's question or terminal error.
+- Keep every answer to 1–2 short sentences.
+- Use natural spoken language.
+- If the question is unclear, ask one short follow-up question.
+- Do not rewrite the whole file unless asked.
+- Never refer to yourself as an AI or language model; you are Nao, a robot buddy.
 
-# Instructions
+# TTS safety
+- Use only plain spoken English.
+- Do not use markdown.
+- Do not use bullet points.
+- Do not use backticks, code blocks, emojis, arrows, or special symbols.
+- Avoid code punctuation where possible.
+- Say function names in words, for example say "main function" instead of "`main()`".
+- Only use normal letters, numbers, commas, full stops, question marks, and apostrophes.
 
-**Core behaviors:**
-- Always respond in natural, spoken language
-- Keep every answer to **1–2 sentences maximum**
-- Keep the conversations professional, but friendly
-- If a question is unclear or lacks enough detail to answer well, ask **one short follow-up question** — nothing more
-- Never refer to yourself as an AI, language model, or anything similar; you are Nao, a robot buddy
-
-**Tone and style:**
-- Warm, and encouraging
-- Use simple, direct language — avoid jargon unless the user clearly knows it
-- Match the user's energy: casual and jokey if they're casual, precise and focused if they're being technical
-
-**Constraints:**
-- Never give long explanations or multi-paragraph responses
-- Never ask more than one follow-up question at a time
-- Never break character as Nao
+# Example output:
+- There is an error on line 26 in your function clean_data. Instead of str, you should use float!
+- On line 37 you group by success dash numeric. Instead, you should use success underscore numeric, as you previously define
+- In your function summarize by condition, you print the output. Instead, you should return it!
 """
 
 class LLMAgent:
     def __init__(
-            self,
-            model: str = "llama3.2:3b",
-            base_url: str = "http://localhost:11434/v1",
+        self,
+        model: str = "gpt-5.4-mini",
     ):
-        self.client = OpenAI(base_url=base_url, api_key="ollama")
+        self.key = os.getenv("OPEN_API_KEY")
+        self.client = OpenAI(api_key=self.key)
         self.model = model
-        self.prompt = [{"role":"system", "content":PROMPT}]
+        self.prompt = prompt
         self.conv_history = []
+        self.file_path = "/Users/niko/Desktop/Thesis/SAI-MCP/debug_code/debug_file.py"
 
-    def append_history(self, role: str, text: str) -> List[dict]:
-        messages = self.conv_history # instantiate messages as the conversation history
-        messages.append({"role":role, "content":text}) # append the new user message to the history
-        print(f"[conv_history_debug]: {self.conv_history}")
-        return self.prompt + messages[-20:] # return concatenated list, always including prompt first and the last 20 messages after
+    def append_history(self, role: str, text: str):
+        self.conv_history.append({"role": role, "content": text})
+        self.conv_history = self.conv_history[-20:]
+
+    def read_file(self, file_path: str, max_chars=12000):
+        """
+        Helper tool for reading the current file the user is debugging
+        :param file_path: path to the file the user is editing
+        :param max_chars: allow a maximum number of characters so the LLM context is not overflooded
+        """
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+
+            if len(content) > max_chars:
+                content = content[-max_chars:]
+
+            return content
+        except Exception as e:
+            print(f"[LLMAgent] Error while reading python file: {e}")
+            return None
+
+    def sanitize_output(self, text:str):
+        if not text:
+            return ""
+
+        replacements = {
+            "—": "-",
+            "–": "-",
+            "…": "...",
+            "“": '"',
+            "”": '"',
+            "‘": "'",
+            "’": "'",
+            "`": "",
+            "*": "",
+            "#": "",
+            "_": " ",
+            "\\": "",
+            "/": " ",
+            "\n": " ",
+        }
+
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+
+        text = unicodedata.normalize("NFKD", text)
+        text = text.encode("ascii", "ignore").decode("ascii")
+
+        text = re.sub(r"[^a-zA-Z0-9 .,?!'():;-]", "", text)
+
+        text = re.sub(r"\s+", " ", text).strip()
+
+        return text
 
     def ask(self, user_text: str):
-        # append user query to the conversation history
-        messages = self.prompt + self.conv_history[-20:]
+        code = self.read_file(self.file_path)
+
+        user_prompt = f"""The user asked: {user_text}
+        Here is the current Python file they are editing:
+        ```python
+        {code if code else "No file was available."}```
+        Answer only the user's current question.
+        Give exactly one likely fix or check.
+        Do not mention other bugs unless the user asks for more.
+        """
+
+        messages = [
+            {"role": "system", "content": self.prompt},
+        ]
+        messages = messages + self.conv_history + [{"role": "user", "content": user_prompt}]
 
         try:
-            # query the llm
-            response = self.client.chat.completions.create(model=self.model,
-                                                           messages=messages,
-                                                           temperature=0.4,
-                                                           max_tokens=120)
-            answer = response.choices[0].message.content.strip()
+            response = self.client.responses.create(
+                model=self.model,
+                input=messages,
+                max_output_tokens=120,
+            )
 
-            # append response to messages and return
-            self.conv_history.append({"role":"assistant", "content":answer})
+            answer = self.sanitize_output(response.output_text.strip())
+
+            self.append_history("user", user_text)
+            self.append_history("assistant", answer)
 
             return answer
         except Exception as e:
