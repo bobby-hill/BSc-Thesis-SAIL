@@ -7,7 +7,7 @@ import json
 
 load_dotenv()
 
-LOG_PATH = "/Users/niko/Desktop/Thesis/SAI-MCP/logs/llm_log.json"
+LOG_PATH = os.path.abspath("/Users/niko/Desktop/Thesis/logs/basic_conv_log.json")
 
 
 def ensure_log_file_exists(log_path = LOG_PATH):
