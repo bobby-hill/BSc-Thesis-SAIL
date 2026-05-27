@@ -1,6 +1,8 @@
 import json
 import time
 import os
+import random
+
 import numpy as np
 
 # Import basic SIC framework modules
@@ -86,9 +88,38 @@ class NaoBasic(SICApplication):
                     if j == 1:
                         self.logger.info("Requesting rest position.")
                         self.say("Im sleepy", animated=False,blocking=True)
-                        time.sleep(5)
+                        time.sleep(3)
+                        self.stop_facetracking()
+                        time.sleep(0.2)
+                        self.stop_breathing()
+                        time.sleep(0.2)
                         self.nao.autonomous.request(NaoRestRequest())
+                        time.sleep(0.2)
                         self.shutdown()
+
+    def pick_gesture(self, tag:str):
+        """
+        Randomly pick a gesture from Nao's gesture bank
+        Available gesture tags: yes, no, idk, please, explain, enthusiastic, talk, hey, you
+        """
+        gestures = {"yes":["animations/Stand/Affirmation/NAO/Center_Neutral_AFF_04"],
+                    "no":["animations/Stand/Gestures/IDontKnow_1", "animations/Stand/Gestures/IDontKnow_2", "animations/Stand/Gestures/No_3", "animations/Stand/Gestures/No_8", "animations/Stand/Gestures/No_9", "animations/Stand/Gestures/No_10"],
+                    "idk":["animations/Stand/Gestures/IDontKnow_1", "animations/Stand/Gestures/IDontKnow_2"],
+                    "please":["animations/Stand/Gestures/Please_1"],
+                    "explain":["animations/Stand/Gestures/Explain_1", "animations/Stand/Gestures/Explain_2", "animations/Stand/Gestures/Explain_3", "animations/Stand/Gestures/Explain_4", "animations/Stand/Gestures/Explain_5", "animations/Stand/Gestures/Explain_6", "animations/Stand/Gestures/Explain_7", "animations/Stand/Gestures/Explain_8","animations/Stand/Gestures/Explain_9"],
+                    "enthusiastic":["animations/Stand/Gestures/Enthusiastic_4", "animations/Stand/Gestures/Enthusiastic_5"],
+                    "talk":["animations/Stand/BodyTalk/BodyTalk_1", "animations/Stand/BodyTalk/BodyTalk_2", "animations/Stand/BodyTalk/BodyTalk_3", "animations/Stand/BodyTalk/BodyTalk_4", "animations/Stand/BodyTalk/BodyTalk_5", "animations/Stand/BodyTalk/BodyTalk_6", "animations/Stand/BodyTalk/BodyTalk_7", "animations/Stand/BodyTalk/BodyTalk_8", "animations/Stand/BodyTalk/BodyTalk_9", "animations/Stand/BodyTalk/BodyTalk_10"],
+                    "hey":["animations/Stand/Gestures/Hey_1", "animations/Stand/Gestures/Hey_6"],
+                    "you":["animations/Stand/Gestures/You_1", "animations/Stand/Gestures/You_4"]
+                    }
+
+        try:
+            gesture = random.choice(gestures[str(tag)])
+            return gesture
+        except Exception as e:
+            self.logger.info(f"[pick_gesture]: {e}")
+            return None
+
 
     def setup(self):
         self.logger.info("[setup]: Initializing Nao...")
@@ -204,6 +235,22 @@ class NaoBasic(SICApplication):
         except Exception as e:
             self.logger.info(f'Error stopping breathing: {e}')
 
+    # functions to start and stop face tracking and breathing in one function
+    def start_live(self):
+        try:
+            self.start_facetracking()
+            self.start_breathing()
+        except Exception as e:
+            self.logger.info(f"Error starting breathing and facetracking: {e}")
+
+    def stop_live(self):
+        try:
+            self.stop_breathing()
+            self.stop_facetracking()
+        except Exception as e:
+            self.logger.info(f"Error stopping breathing and facetracking: {e}")
+
+
     def say(self, text, blocking=True,animated=False, gesture=None):
         """
         Make NAO say something. By default: blocking=False animated=False
@@ -211,30 +258,20 @@ class NaoBasic(SICApplication):
         :animated: Whether a filler animation will be used while Nao speaks
         :gesture: Optional gesture path if we want the robot to do a gesture while speaking
         """
-        text = f"\\vol=80\\ \\rspd=80\\ {text}"
+        text = f"\\vol=40\\ \\rspd=92\\ {text}"
         try:
             if animated == False and blocking == False and gesture: # Get nao to perform a gesture while speaking
-                self.stop_facetracking() # Stop face tracking to prevent interference with gestures
-                self.stop_breathing()
                 time.sleep(0.2)
 
                 self.logger.info("[say] Requesting Nao to say with gesture..")
                 self.nao.tts.request(NaoqiTextToSpeechRequest(str(text), animated=False), block=False)
 
                 self.nao.motion.request(NaoqiAnimationRequest(str(gesture)), block=True) # Perform gesture while speaking
-
-                self.start_facetracking() # Resume face tracking
-                self.start_breathing()
             elif animated: # Get nao to perform some movements while speaking
-                self.stop_facetracking()
-                self.stop_breathing()
                 time.sleep(0.2)
 
                 self.logger.info("[say] Requesting Nao to say with animated..")
                 self.nao.tts.request(NaoqiTextToSpeechRequest(str(text), animated=True), block=True)
-
-                self.start_facetracking()
-                self.start_breathing()
             else:
                 # Do not turn off face tracking or breathing for simple tts requests
                 self.logger.info("[say] Requesting Nao to say normally..")
@@ -267,18 +304,18 @@ class NaoBasic(SICApplication):
         self.logger.info("[run]: Starting NAO TTS demo...")
         self.logger.info("[run]: Press Ctrl+C to stop.")
 
-        self.start_facetracking()
-
         self.logger.info("[run] Requesting stand position.")
         self.nao.motion.request(NaoPostureRequest(target_posture="Stand", speed=0.5))
         time.sleep(1)
+
+        self.start_live() # start living
 
         # Greeting + initialisation
         self.say(text="""Hello there!
                       "My name is Nao, and I am your coding buddy for today.
                       "Feel free to ask me anything about programming, or, if you have an error that's bugging you,
-                      we can fix it together! Just ask me when you need me.""", blocking=False, gesture="animations/Stand/Gestures/Hey_6")
-        time.sleep(8)
+                      we can fix it together! Just ask me when you need me.""", blocking=False, gesture=self.pick_gesture("yes"))
+        time.sleep(10)
 
         try:
             while not self.shutdown_event.is_set():
@@ -289,21 +326,29 @@ class NaoBasic(SICApplication):
 
                     if self.df_reply(intent, action) and fulfillment_message: # if there's a known intent or action, we can use smalltalk from dialogflow
                         self.logger.info("[run]: Intent identified, using fulfillment message.")
-                        self.say(text=fulfillment_message, animated=True)
+                        self.stop_live() # stop living
+
+                        self.say(text=fulfillment_message, animated=False, gesture=self.pick_gesture("enthusiastic"), blocking=False)
+
+                        self.start_live() # start living
 
                     else: # if no intent, we need to call llm for the response
                         self.logger.info(f"[run]: Sending transcript to LLM Agent...")
-                        self.say(text="Let me think..", blocking=False, animated=True)
+                        self.stop_live() # stop living
+
+                        self.say(text="Let me think..", blocking=False, animated=False, gesture=self.pick_gesture("explain"))
                         response = self.llm_agent.ask(transcript) # try to get response from llm
 
                         if response: # if there's a response
                             self.logger.info(f"[run]: LLM Response: {response}") # log response
                             self.logger.info(f"[run]: Requesting nao to say LLM response")
-                            self.say(text=response,animated=True) # get nao to say it
+                            self.say(text=response,animated=False, blocking=False, gesture="animations/Stand/Gestures/Explain_1") # get nao to say it
+
+                            self.start_live() # resume living
 
                         elif fulfillment_message: # if there's no response, try fulfillment message
                             self.logger.info("[run]: Requesting nao to say fulfillment message.")
-                            self.say(text=fulfillment_message,animated=True) # get nao to say fulfillment message
+                            self.say(text=fulfillment_message,animated=False, blocking=False, gesture=self.pick_gesture("talk")) # get nao to say fulfillment message
 
                         else: # if nothing works use fallback
                             self.logger.info("[run]: No LLM response or Fulfillment message. Using fallback...")
