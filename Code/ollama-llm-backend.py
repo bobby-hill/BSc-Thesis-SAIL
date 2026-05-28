@@ -32,7 +32,7 @@ class LLMAgent:
         self.model = model
         self.prompt = prompt
         self.conv_history = []
-        self.file_path = "/Users/niko/Desktop/Thesis/SAI-MCP/debug_code/debug_file.py"
+        self.file_path = "/debug_code/basic_debug_file.py"
 
     def append_history(self, role: str, text: str):
         self.conv_history.append({"role": role, "content": text})
