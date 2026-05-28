@@ -26,6 +26,11 @@ from sic_framework.devices.common_naoqi.naoqi_tracker import (
     StopAllTrackRequest,
 ) # Nao face tracking stuff
 
+from sic_framework.devices.common_naoqi.naoqi_leds import (
+    NaoLEDRequest, # Nao led request to reset leds after some animations
+    NaoFadeRGBRequest # Nao RGB leds request
+)
+
 # Import dialogflow for stt
 from sic_framework.services.dialogflow.dialogflow import (
     Dialogflow,
@@ -88,7 +93,6 @@ class NaoBasic(SICApplication):
                     if j == 1:
                         self.logger.info("Requesting rest position.")
                         self.say("Im sleepy", animated=False,blocking=True)
-                        time.sleep(3)
                         self.stop_facetracking()
                         time.sleep(0.2)
                         self.stop_breathing()
@@ -102,14 +106,14 @@ class NaoBasic(SICApplication):
         Randomly pick a gesture from Nao's gesture bank
         Available gesture tags: yes, no, idk, please, explain, enthusiastic, talk, hey, you
         """
-        gestures = {"yes":["animations/Stand/Affirmation/NAO/Center_Neutral_AFF_04"],
-                    "no":["animations/Stand/Gestures/IDontKnow_1", "animations/Stand/Gestures/IDontKnow_2", "animations/Stand/Gestures/No_3", "animations/Stand/Gestures/No_8", "animations/Stand/Gestures/No_9", "animations/Stand/Gestures/No_10"],
-                    "idk":["animations/Stand/Gestures/IDontKnow_1", "animations/Stand/Gestures/IDontKnow_2"],
+        gestures = {"yes":["animations/Stand/Gestures/Yes_1", "animations/Stand/Gestures/Yes_3"],
+                    "no":["animations/Stand/Gestures/No_3", "animations/Stand/Gestures/No_8","animations/Stand/Gestures/No_9"],
+                    "idk":["animations/Stand/Gestures/IDontKnow_1","animations/Stand/Gestures/IDontKnow_2"],
                     "please":["animations/Stand/Gestures/Please_1"],
-                    "explain":["animations/Stand/Gestures/Explain_1", "animations/Stand/Gestures/Explain_2", "animations/Stand/Gestures/Explain_3", "animations/Stand/Gestures/Explain_4", "animations/Stand/Gestures/Explain_5", "animations/Stand/Gestures/Explain_6", "animations/Stand/Gestures/Explain_7", "animations/Stand/Gestures/Explain_8","animations/Stand/Gestures/Explain_9"],
-                    "enthusiastic":["animations/Stand/Gestures/Enthusiastic_4", "animations/Stand/Gestures/Enthusiastic_5"],
-                    "talk":["animations/Stand/BodyTalk/BodyTalk_1", "animations/Stand/BodyTalk/BodyTalk_2", "animations/Stand/BodyTalk/BodyTalk_3", "animations/Stand/BodyTalk/BodyTalk_4", "animations/Stand/BodyTalk/BodyTalk_5", "animations/Stand/BodyTalk/BodyTalk_6", "animations/Stand/BodyTalk/BodyTalk_7", "animations/Stand/BodyTalk/BodyTalk_8", "animations/Stand/BodyTalk/BodyTalk_9", "animations/Stand/BodyTalk/BodyTalk_10"],
-                    "hey":["animations/Stand/Gestures/Hey_1", "animations/Stand/Gestures/Hey_6"],
+                    "explain":["animations/Stand/Gestures/Explain_1","animations/Stand/Gestures/Explain_2","animations/Stand/Gestures/Explain_3","animations/Stand/Gestures/Explain_4","animations/Stand/Gestures/Explain_5"],
+                    "enthusiastic":["animations/Stand/Gestures/Enthusiastic_4","animations/Stand/Gestures/Enthusiastic_5"],
+                    "talk":["animations/Stand/Gestures/YouKnowWhat_1","animations/Stand/Gestures/YouKnowWhat_5"],
+                    "hey":["animations/Stand/Gestures/Hey_1","animations/Stand/Gestures/Hey_6"],
                     "you":["animations/Stand/Gestures/You_1", "animations/Stand/Gestures/You_4"]
                     }
 
@@ -207,7 +211,6 @@ class NaoBasic(SICApplication):
                     target_name="Face", size=0.2, mode="Head", effector="None"
                 )
             )
-            time.sleep(1)
         except Exception as e:
             self.logger.info(f"Face tracking failed: {e}")
 
@@ -246,7 +249,7 @@ class NaoBasic(SICApplication):
     def stop_live(self):
         try:
             self.stop_breathing()
-            self.stop_facetracking()
+            #self.stop_facetracking() # For now dont stop face tracking while doing gestures
         except Exception as e:
             self.logger.info(f"Error stopping breathing and facetracking: {e}")
 
@@ -258,18 +261,16 @@ class NaoBasic(SICApplication):
         :animated: Whether a filler animation will be used while Nao speaks
         :gesture: Optional gesture path if we want the robot to do a gesture while speaking
         """
-        text = f"\\vol=40\\ \\rspd=92\\ {text}"
+        text = f"\\vol=90\\ \\rspd=100\\ {text}" # rspd was 92
         try:
             if animated == False and blocking == False and gesture: # Get nao to perform a gesture while speaking
-                time.sleep(0.2)
-
                 self.logger.info("[say] Requesting Nao to say with gesture..")
-                self.nao.tts.request(NaoqiTextToSpeechRequest(str(text), animated=False), block=False)
 
-                self.nao.motion.request(NaoqiAnimationRequest(str(gesture)), block=True) # Perform gesture while speaking
+                self.nao.motion.request(NaoqiAnimationRequest(str(gesture)), block=False) # Perform gesture while speaking
+                self.nao.tts.request(NaoqiTextToSpeechRequest(str(text), animated=False), block=True)
+
+                self.nao.leds.request(NaoLEDRequest("FaceLeds", True)) # Reset leds after some animations
             elif animated: # Get nao to perform some movements while speaking
-                time.sleep(0.2)
-
                 self.logger.info("[say] Requesting Nao to say with animated..")
                 self.nao.tts.request(NaoqiTextToSpeechRequest(str(text), animated=True), block=True)
             else:
@@ -315,13 +316,15 @@ class NaoBasic(SICApplication):
                       "My name is Nao, and I am your coding buddy for today.
                       "Feel free to ask me anything about programming, or, if you have an error that's bugging you,
                       we can fix it together! Just ask me when you need me.""", blocking=False, gesture=self.pick_gesture("yes"))
-        time.sleep(10)
 
         try:
             while not self.shutdown_event.is_set():
+                self.nao.leds.request(NaoFadeRGBRequest("FaceLeds", r=0, g=1, b=0, duration=0)) # Turn leds to green while listening
                 transcript,fulfillment_message, intent, action = self.listen_once()
 
                 if transcript: # if dialogflow successfully transcribed the speech
+                    self.nao.leds.request(NaoLEDRequest("FaceLeds", True)) # Turn leds back to white
+
                     self.logger.info(f"[run]: Transcript: {transcript}") # log the transcription
 
                     if self.df_reply(intent, action) and fulfillment_message: # if there's a known intent or action, we can use smalltalk from dialogflow
@@ -340,9 +343,10 @@ class NaoBasic(SICApplication):
                         response = self.llm_agent.ask(transcript) # try to get response from llm
 
                         if response: # if there's a response
-                            self.logger.info(f"[run]: LLM Response: {response}") # log response
+                            text, gesture = response
+                            self.logger.info(f"[run]: LLM Response: {response}; LLM Gesture: {gesture}") # log response
                             self.logger.info(f"[run]: Requesting nao to say LLM response")
-                            self.say(text=response,animated=False, blocking=False, gesture="animations/Stand/Gestures/Explain_1") # get nao to say it
+                            self.say(text=text,animated=False, blocking=False, gesture=gesture) # get nao to say it
 
                             self.start_live() # resume living
 
