@@ -121,7 +121,7 @@ class LLMAgent:
         self.model = model
         self.prompt = prompt
         self.conv_history = []
-        self.file_path = "/Users/niko/Desktop/Thesis/SAI-MCP/debug_code/debug_file.py"
+        self.file_path = "/debug_code/mcp_debug_file.py"
         self.user_index = self.create_user_log_entry()
 
     def append_history(self, role: str, text: str):

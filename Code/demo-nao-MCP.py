@@ -39,7 +39,7 @@ from sic_framework.services.dialogflow.dialogflow import (
 )
 
 # Import local LLM
-from llm_backend import LLMAgent
+from mcp_llm_backend import LLMAgent
 
 class NaoBasic(SICApplication):
     ### some parts from sic_application: demo_nao_voice_detection.py ###
