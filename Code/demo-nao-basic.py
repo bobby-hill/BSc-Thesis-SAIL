@@ -33,6 +33,12 @@ from sic_framework.services.dialogflow.dialogflow import (
     GetIntentRequest,
 )
 
+# Nao eye Led imports
+from sic_framework.devices.common_naoqi.naoqi_leds import (
+    NaoLEDRequest, # Nao led request to reset leds after some animations
+    NaoFadeRGBRequest # Nao RGB leds request
+)
+
 # Import local LLM
 from basic_llm_backend import LLMAgent
 
@@ -102,15 +108,19 @@ class NaoBasic(SICApplication):
         Randomly pick a gesture from Nao's gesture bank
         Available gesture tags: yes, no, idk, please, explain, enthusiastic, talk, hey, you
         """
-        gestures = {"yes":["animations/Stand/Affirmation/NAO/Center_Neutral_AFF_04"],
-                    "no":["animations/Stand/Gestures/IDontKnow_1", "animations/Stand/Gestures/IDontKnow_2", "animations/Stand/Gestures/No_3", "animations/Stand/Gestures/No_8", "animations/Stand/Gestures/No_9", "animations/Stand/Gestures/No_10"],
-                    "idk":["animations/Stand/Gestures/IDontKnow_1", "animations/Stand/Gestures/IDontKnow_2"],
-                    "please":["animations/Stand/Gestures/Please_1"],
-                    "explain":["animations/Stand/Gestures/Explain_1", "animations/Stand/Gestures/Explain_2", "animations/Stand/Gestures/Explain_3", "animations/Stand/Gestures/Explain_4", "animations/Stand/Gestures/Explain_5", "animations/Stand/Gestures/Explain_6", "animations/Stand/Gestures/Explain_7", "animations/Stand/Gestures/Explain_8","animations/Stand/Gestures/Explain_9"],
-                    "enthusiastic":["animations/Stand/Gestures/Enthusiastic_4", "animations/Stand/Gestures/Enthusiastic_5"],
-                    "talk":["animations/Stand/BodyTalk/BodyTalk_1", "animations/Stand/BodyTalk/BodyTalk_2", "animations/Stand/BodyTalk/BodyTalk_3", "animations/Stand/BodyTalk/BodyTalk_4", "animations/Stand/BodyTalk/BodyTalk_5", "animations/Stand/BodyTalk/BodyTalk_6", "animations/Stand/BodyTalk/BodyTalk_7", "animations/Stand/BodyTalk/BodyTalk_8", "animations/Stand/BodyTalk/BodyTalk_9", "animations/Stand/BodyTalk/BodyTalk_10"],
-                    "hey":["animations/Stand/Gestures/Hey_1", "animations/Stand/Gestures/Hey_6"],
-                    "you":["animations/Stand/Gestures/You_1", "animations/Stand/Gestures/You_4"]
+        gestures = {"yes": ["animations/Stand/Gestures/Yes_1", "animations/Stand/Gestures/Yes_3"],
+                    "no": ["animations/Stand/Gestures/No_3", "animations/Stand/Gestures/No_8",
+                           "animations/Stand/Gestures/No_9"],
+                    "idk": ["animations/Stand/Gestures/IDontKnow_1", "animations/Stand/Gestures/IDontKnow_2"],
+                    "please": ["animations/Stand/Gestures/Please_1"],
+                    "explain": ["animations/Stand/Gestures/Explain_1", "animations/Stand/Gestures/Explain_2",
+                                "animations/Stand/Gestures/Explain_3", "animations/Stand/Gestures/Explain_4",
+                                "animations/Stand/Gestures/Explain_5"],
+                    "enthusiastic": ["animations/Stand/Gestures/Enthusiastic_4",
+                                     "animations/Stand/Gestures/Enthusiastic_5"],
+                    "talk": ["animations/Stand/Gestures/YouKnowWhat_1", "animations/Stand/Gestures/YouKnowWhat_5"],
+                    "hey": ["animations/Stand/Gestures/Hey_1", "animations/Stand/Gestures/Hey_6"],
+                    "you": ["animations/Stand/Gestures/You_1", "animations/Stand/Gestures/You_4"]
                     }
 
         try:
@@ -258,15 +268,16 @@ class NaoBasic(SICApplication):
         :animated: Whether a filler animation will be used while Nao speaks
         :gesture: Optional gesture path if we want the robot to do a gesture while speaking
         """
-        text = f"\\vol=40\\ \\rspd=92\\ {text}"
+        text = f"\\vol=50\\ \\rspd=93\\ {text}"
         try:
             if animated == False and blocking == False and gesture: # Get nao to perform a gesture while speaking
                 time.sleep(0.2)
 
                 self.logger.info("[say] Requesting Nao to say with gesture..")
-                self.nao.tts.request(NaoqiTextToSpeechRequest(str(text), animated=False), block=False)
+                self.nao.motion.request(NaoqiAnimationRequest(str(gesture)), block=False) # Perform gesture while speaking
+                self.nao.tts.request(NaoqiTextToSpeechRequest(str(text), animated=False), block=True)
 
-                self.nao.motion.request(NaoqiAnimationRequest(str(gesture)), block=True) # Perform gesture while speaking
+                self.nao.leds.request(NaoLEDRequest("FaceLeds", True)) # Reset leds after some animations
             elif animated: # Get nao to perform some movements while speaking
                 time.sleep(0.2)
 
@@ -315,13 +326,15 @@ class NaoBasic(SICApplication):
                       "My name is Nao, and I am your coding buddy for today.
                       "Feel free to ask me anything about programming, or, if you have an error that's bugging you,
                       we can fix it together! Just ask me when you need me.""", blocking=False, gesture=self.pick_gesture("yes"))
-        time.sleep(10)
+        #time.sleep(10)
 
         try:
             while not self.shutdown_event.is_set():
+                self.nao.leds.request(NaoFadeRGBRequest("FaceLeds", r=0, g=1, b=0, duration=0)) # Turn leds to green while listening
                 transcript,fulfillment_message, intent, action = self.listen_once()
 
                 if transcript: # if dialogflow successfully transcribed the speech
+                    self.nao.leds.request(NaoLEDRequest("FaceLeds", True)) # Turn leds back to white
                     self.logger.info(f"[run]: Transcript: {transcript}") # log the transcription
 
                     if self.df_reply(intent, action) and fulfillment_message: # if there's a known intent or action, we can use smalltalk from dialogflow
@@ -336,23 +349,23 @@ class NaoBasic(SICApplication):
                         self.logger.info(f"[run]: Sending transcript to LLM Agent...")
                         self.stop_live() # stop living
 
-                        self.say(text="Let me think..", blocking=False, animated=False, gesture=self.pick_gesture("explain"))
+                        self.say(text="mmm...", blocking=False, animated=False, gesture=self.pick_gesture("explain"))
                         response = self.llm_agent.ask(transcript) # try to get response from llm
 
                         if response: # if there's a response
                             self.logger.info(f"[run]: LLM Response: {response}") # log response
                             self.logger.info(f"[run]: Requesting nao to say LLM response")
-                            self.say(text=response,animated=False, blocking=False, gesture="animations/Stand/Gestures/Explain_1") # get nao to say it
+                            self.say(text=response,animated=False, blocking=False, gesture=self.pick_gesture("explain")) # get nao to say it
 
                             self.start_live() # resume living
 
                         elif fulfillment_message: # if there's no response, try fulfillment message
                             self.logger.info("[run]: Requesting nao to say fulfillment message.")
-                            self.say(text=fulfillment_message,animated=False, blocking=False, gesture=self.pick_gesture("talk")) # get nao to say fulfillment message
+                            self.say(text=fulfillment_message,animated=False, blocking=False, gesture=self.pick_gesture("explain")) # get nao to say fulfillment message
 
                         else: # if nothing works use fallback
                             self.logger.info("[run]: No LLM response or Fulfillment message. Using fallback...")
-                            self.say(text="I had trouble coming up with a response...", gesture="animations/Stand/Gestures/IDontKnow_1")
+                            self.say(text="I had trouble coming up with a response...", gesture=self.pick_gesture("no"))
         except KeyboardInterrupt:
             self.logger.info("[run]: Keyboard interrupt. Shutting down...")
         except Exception as e:

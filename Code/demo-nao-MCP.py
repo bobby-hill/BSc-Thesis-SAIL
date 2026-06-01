@@ -261,7 +261,7 @@ class NaoBasic(SICApplication):
         :animated: Whether a filler animation will be used while Nao speaks
         :gesture: Optional gesture path if we want the robot to do a gesture while speaking
         """
-        text = f"\\vol=90\\ \\rspd=100\\ {text}" # rspd was 92
+        text = f"\\vol=50\\ \\rspd=93\\ {text}" # rspd was 92
         try:
             if animated == False and blocking == False and gesture: # Get nao to perform a gesture while speaking
                 self.logger.info("[say] Requesting Nao to say with gesture..")
@@ -339,7 +339,7 @@ class NaoBasic(SICApplication):
                         self.logger.info(f"[run]: Sending transcript to LLM Agent...")
                         self.stop_live() # stop living
 
-                        self.say(text="Let me think..", blocking=False, animated=False, gesture=self.pick_gesture("explain"))
+                        self.say(text="mmm...", blocking=False, animated=False, gesture=self.pick_gesture("explain"))
                         response = self.llm_agent.ask(transcript) # try to get response from llm
 
                         if response: # if there's a response

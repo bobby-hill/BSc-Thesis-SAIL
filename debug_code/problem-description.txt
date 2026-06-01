@@ -1,4 +1,0 @@
-Goal:
-Load participant interaction data, calculate summary statistics,
-and plot engagement scores for two robot interaction conditions.
-

@@ -91,7 +91,7 @@ class LLMAgent:
         self.model = model
         self.prompt = prompt
         self.conv_history = []
-        self.file_path = "/debug_code/basic_debug_file.py"
+        self.file_path = "/Users/niko/Desktop/Thesis/SAI-MCP/debug_code/basic_debug_file.py"
         self.user_index = self.create_user_log_entry()
 
     def append_history(self, role: str, text: str):
@@ -294,17 +294,3 @@ class LLMAgent:
         except Exception as e:
             print(f"[LLMAgent]: LLM request failed. {e}")
             return "Sorry, I had trouble thinking of an answer. Please try again."
-
-### Debugging logic ###
-LLM = LLMAgent()
-while True:
-    try:
-        prompt = input(">")
-        print("Thinking..")
-        reply = LLM.ask(str(prompt))
-        print(reply)
-    except KeyboardInterrupt:
-        break
-    except Exception as e:
-        print(e)
-        break
