@@ -12,7 +12,15 @@ from sic_framework.core import sic_logging
 # Import NAO
 from sic_framework.devices import Nao # Nao base class
 from sic_framework.devices.nao import NaoqiTextToSpeechRequest # Nao TTS service
-from sic_framework.devices.common_naoqi.naoqi_autonomous import NaoRestRequest # Nao rest position
+from sic_framework.devices.common_naoqi.naoqi_autonomous import (
+    NaoRestRequest,
+    NaoSetAutonomousLifeRequest,
+    NaoBasicAwarenessRequest,
+    NaoBackgroundMovingRequest,
+    NaoListeningMovementRequest,
+    NaoSpeakingMovementRequest,
+) # Import nao life autonomous processes
+
 from sic_framework.devices.common_naoqi.naoqi_motion import (
     NaoPostureRequest,
     NaoqiAnimationRequest,
@@ -99,6 +107,7 @@ class NaoBasic(SICApplication):
                         time.sleep(0.2)
                         self.stop_breathing()
                         time.sleep(0.2)
+                        self.nao.leds.request(NaoLEDRequest("FaceLeds", False))
                         self.nao.autonomous.request(NaoRestRequest())
                         time.sleep(0.2)
                         self.shutdown()
@@ -106,22 +115,199 @@ class NaoBasic(SICApplication):
     def pick_gesture(self, tag:str):
         """
         Randomly pick a gesture from Nao's gesture bank
-        Available gesture tags: yes, no, idk, please, explain, enthusiastic, talk, hey, you
+        Gestures: no, this, enthusiastic, please, idk, explain, talk, hey, you, thinking, confused, yes, count_one/two/three/four/more, calm_down, reject, give, whatsthis, me, show_sky, show_floor, everything, look, choice, maybe, great, applause, joy, excited, surprised, why, come_one
         """
-        gestures = {"yes": ["animations/Stand/Gestures/Yes_1", "animations/Stand/Gestures/Yes_3"],
-                    "no": ["animations/Stand/Gestures/No_3", "animations/Stand/Gestures/No_8",
-                           "animations/Stand/Gestures/No_9"],
-                    "idk": ["animations/Stand/Gestures/IDontKnow_1", "animations/Stand/Gestures/IDontKnow_2"],
-                    "please": ["animations/Stand/Gestures/Please_1"],
-                    "explain": ["animations/Stand/Gestures/Explain_1", "animations/Stand/Gestures/Explain_2",
-                                "animations/Stand/Gestures/Explain_3", "animations/Stand/Gestures/Explain_4",
-                                "animations/Stand/Gestures/Explain_5"],
-                    "enthusiastic": ["animations/Stand/Gestures/Enthusiastic_4",
-                                     "animations/Stand/Gestures/Enthusiastic_5"],
-                    "talk": ["animations/Stand/Gestures/YouKnowWhat_1", "animations/Stand/Gestures/YouKnowWhat_5"],
-                    "hey": ["animations/Stand/Gestures/Hey_1", "animations/Stand/Gestures/Hey_6"],
-                    "you": ["animations/Stand/Gestures/You_1", "animations/Stand/Gestures/You_4"]
-                    }
+        gestures = {
+            "no": [
+                "animations/Stand/Gestures/No_5",
+                "animations/Stand/Gestures/No_4",
+                "animations/Stand/Gestures/No_9",
+                "animations/Stand/Gestures/No_1",
+                "animations/Stand/Gestures/No_7"
+            ],
+            "this": [
+                "animations/Stand/Gestures/This_13",
+                "animations/Stand/Gestures/This_8",
+                "animations/Stand/Gestures/This_3",
+                "animations/Stand/Gestures/This_7",
+                "animations/Stand/Gestures/This_14"
+            ],
+            "enthusiastic": [
+                "animations/Stand/Gestures/Enthusiastic_1",
+                "animations/Stand/Gestures/Enthusiastic_5",
+                "animations/Stand/Gestures/Enthusiastic_4",
+                "animations/Stand/Gestures/Enthusiastic_2",
+                "animations/Stand/Gestures/Enthusiastic_3"
+            ],
+            "please": [
+                "animations/Stand/Gestures/Please_3",
+                "animations/Stand/Gestures/Please_2",
+                "animations/Stand/Gestures/Please_1"
+            ],
+            "idk": [
+                "animations/Stand/Gestures/IDontKnow_3",
+                "animations/Stand/Gestures/IDontKnow_2",
+                "animations/Stand/Gestures/IDontKnow_1",
+                "animations/Stand/Gestures/IDontKnow_5",
+                "animations/Stand/Gestures/IDontKnow_4"
+            ],
+            "explain": [
+                "animations/Stand/Gestures/Explain_1",
+                "animations/Stand/Gestures/Explain_5",
+                "animations/Stand/Gestures/Explain_11",
+                "animations/Stand/Gestures/Explain_2",
+                "animations/Stand/Gestures/Explain_6"
+            ],
+            "talk": [
+                "animations/Stand/Gestures/YouKnowWhat_5",
+                "animations/Stand/Gestures/YouKnowWhat_3",
+                "animations/Stand/Gestures/YouKnowWhat_2",
+                "animations/Stand/Gestures/YouKnowWhat_4",
+                "animations/Stand/Gestures/YouKnowWhat_1"
+            ],
+            "hey": [
+                "animations/Stand/Gestures/Hey_3",
+                "animations/Stand/Gestures/Hey_7",
+                "animations/Stand/Gestures/Hey_1",
+                "animations/Stand/Gestures/Hey_6",
+                "animations/Stand/Gestures/Hey_4"
+            ],
+            "you": [
+                "animations/Stand/Gestures/You_3",
+                "animations/Stand/Gestures/You_1",
+                "animations/Stand/Gestures/You_4",
+                "animations/Stand/Gestures/You_5",
+                "animations/Stand/Gestures/You_2"
+            ],
+            "thinking": [
+                "animations/Stand/Gestures/Thinking_7",
+                "animations/Stand/Gestures/Thinking_4",
+                "animations/Stand/Gestures/Thinking_1",
+                "animations/Stand/Gestures/Thinking_2",
+                "animations/Stand/Gestures/Thinking_5"
+            ],
+            "confused": [
+                "animations/Stand/Gestures/Confused_1",
+                "animations/Stand/Gestures/Confused_2"
+            ],
+            "yes": [
+                "animations/Stand/Gestures/Yes_2",
+                "animations/Stand/Gestures/Yes_1",
+                "animations/Stand/Gestures/Yes_3"
+            ],
+            "count_one": [
+                "animations/Stand/Gestures/CountOne_2",
+                "animations/Stand/Gestures/CountOne_1"
+            ],
+            "count_two": [
+                "animations/Stand/Gestures/CountTwo_2",
+                "animations/Stand/Gestures/CountTwo_1"
+            ],
+            "count_three": [
+                "animations/Stand/Gestures/CountThree_1",
+                "animations/Stand/Gestures/CountThree_2"
+            ],
+            "count_four": [
+                "animations/Stand/Gestures/CountFour_2",
+                "animations/Stand/Gestures/CountFour_1"
+            ],
+            "count_five": [
+                "animations/Stand/Gestures/CountFive_1",
+                "animations/Stand/Gestures/CountFive_2"
+            ],
+            "count_more": [
+                "animations/Stand/Gestures/CountMore_2",
+                "animations/Stand/Gestures/CountMore_1"
+            ],
+            "calm_down": [
+                "animations/Stand/Gestures/CalmDown_5",
+                "animations/Stand/Gestures/CalmDown_2",
+                "animations/Stand/Gestures/CalmDown_1",
+                "animations/Stand/Gestures/CalmDown_3",
+                "animations/Stand/Gestures/CalmDown_6"
+            ],
+            "reject": [
+                "animations/Stand/Gestures/Reject_2",
+                "animations/Stand/Gestures/Reject_4",
+                "animations/Stand/Gestures/Reject_1",
+                "animations/Stand/Gestures/Reject_5",
+                "animations/Stand/Gestures/Reject_6"
+            ],
+            "give": [
+                "animations/Stand/Gestures/Give_6",
+                "animations/Stand/Gestures/Give_5",
+                "animations/Stand/Gestures/Give_3",
+                "animations/Stand/Gestures/Give_4",
+                "animations/Stand/Gestures/Give_2"
+            ],
+            "whatsthis": [
+                "animations/Stand/Gestures/WhatSThis_4",
+                "animations/Stand/Gestures/WhatSThis_12",
+                "animations/Stand/Gestures/WhatSThis_9",
+                "animations/Stand/Gestures/WhatSThis_6",
+                "animations/Stand/Gestures/WhatSThis_1"
+            ],
+            "me": [
+                "animations/Stand/Gestures/Me_2",
+                "animations/Stand/Gestures/Me_3",
+                "animations/Stand/Gestures/Me_4",
+                "animations/Stand/Gestures/Me_6",
+                "animations/Stand/Gestures/Me_5"
+            ],
+            "show_sky": [
+                "animations/Stand/Gestures/ShowSky_7",
+                "animations/Stand/Gestures/ShowSky_6",
+                "animations/Stand/Gestures/ShowSky_3",
+                "animations/Stand/Gestures/ShowSky_10",
+                "animations/Stand/Gestures/ShowSky_11"
+            ],
+            "show_floor": [
+                "animations/Stand/Gestures/ShowFloor_2",
+                "animations/Stand/Gestures/ShowFloor_4",
+                "animations/Stand/Gestures/ShowFloor_3",
+                "animations/Stand/Gestures/ShowFloor_5",
+                "animations/Stand/Gestures/ShowFloor_1"
+            ],
+            "everything": [
+                "animations/Stand/Gestures/Everything_4",
+                "animations/Stand/Gestures/Everything_2",
+                "animations/Stand/Gestures/Everything_1",
+                "animations/Stand/Gestures/Everything_5",
+                "animations/Stand/Gestures/Everything_3"
+            ],
+            "look": [
+                "animations/Stand/Gestures/Look_2",
+                "animations/Stand/Gestures/Look_1"
+            ],
+            "choice": [
+                "animations/Stand/Gestures/Choice_2",
+                "animations/Stand/Gestures/Choice_1"
+            ],
+            "maybe": [
+                "animations/Stand/Gestures/Maybe_1"
+            ],
+            "great": [
+                "animations/Stand/Gestures/Great_1"
+            ],
+            "applause": [
+                "animations/Stand/Gestures/Applause_1"
+            ],
+            "joy": [
+                "animations/Stand/Gestures/Joy_1"
+            ],
+            "excited": [
+                "animations/Stand/Gestures/Excited_1"
+            ],
+            "surprised": [
+                "animations/Stand/Gestures/Surprised_1"
+            ],
+            "shy": [
+                "animations/Stand/Gestures/Shy_1"
+            ],
+            "come_on": [
+                "animations/Stand/Gestures/ComeOn_1"
+            ],
+        }
 
         try:
             gesture = random.choice(gestures[str(tag)])
@@ -153,9 +339,20 @@ class NaoBasic(SICApplication):
         # Register a callback function when Naos button is pressed
         self.nao.buttons.register_callback(self.on_button_press)
 
-        time.sleep(1)
+        self.nao.leds.request(NaoLEDRequest("FaceLeds", True))
 
-        self.logger.info("Dialogflow is ready.")
+        # Get nao to stand
+        try:
+            self.nao.motion.request(NaoPostureRequest(target_posture="Stand", speed=0.5))
+            time.sleep(3)
+        except Exception as e:
+            print(e)
+            return None
+
+        # Start autonomous functions
+        self.nao.autonomous.request(NaoBasicAwarenessRequest(True))
+        self.nao.autonomous.request(NaoBackgroundMovingRequest(True))
+        time.sleep(0.2)
 
     def listen_once(self):
         """
@@ -211,7 +408,7 @@ class NaoBasic(SICApplication):
     def start_facetracking(self):
         self.logger.info("Starting face tracking..")
         try:
-            self.nao.stiffness.request(Stiffness(stiffness=0.6, joints=["Head"]))
+            self.nao.stiffness.request(Stiffness(stiffness=0.5, joints=["Head"]))
             self.nao.tracker.request(
                 StartTrackRequest(
                     target_name="Face", size=0.2, mode="Head", effector="None"
@@ -271,16 +468,12 @@ class NaoBasic(SICApplication):
         text = f"\\vol=50\\ \\rspd=93\\ {text}"
         try:
             if animated == False and blocking == False and gesture: # Get nao to perform a gesture while speaking
-                time.sleep(0.2)
-
                 self.logger.info("[say] Requesting Nao to say with gesture..")
                 self.nao.motion.request(NaoqiAnimationRequest(str(gesture)), block=False) # Perform gesture while speaking
                 self.nao.tts.request(NaoqiTextToSpeechRequest(str(text), animated=False), block=True)
 
                 self.nao.leds.request(NaoLEDRequest("FaceLeds", True)) # Reset leds after some animations
             elif animated: # Get nao to perform some movements while speaking
-                time.sleep(0.2)
-
                 self.logger.info("[say] Requesting Nao to say with animated..")
                 self.nao.tts.request(NaoqiTextToSpeechRequest(str(text), animated=True), block=True)
             else:
@@ -312,21 +505,19 @@ class NaoBasic(SICApplication):
         Main run loop.
         Repeatedly listens for one user statement and prints the transcript
         """
-        self.logger.info("[run]: Starting NAO TTS demo...")
+        self.logger.info("[run]: Starting NAO TTS...")
         self.logger.info("[run]: Press Ctrl+C to stop.")
 
-        self.logger.info("[run] Requesting stand position.")
-        self.nao.motion.request(NaoPostureRequest(target_posture="Stand", speed=0.5))
-        time.sleep(1)
-
-        self.start_live() # start living
-
-        # Greeting + initialisation
-        self.say(text="""Hello there!
-                      "My name is Nao, and I am your coding buddy for today.
-                      "Feel free to ask me anything about programming, or, if you have an error that's bugging you,
-                      we can fix it together! Just ask me when you need me.""", blocking=False, gesture=self.pick_gesture("yes"))
-        #time.sleep(10)
+        # Send hello prompt to llm + warm up llm for conversation
+        greeting = self.llm_agent.ask("Hello there!")
+        if greeting:
+            self.say(text=greeting, animated=False, blocking=False, gesture=self.pick_gesture("yes"))
+        else:  # If no llm response, use fallback
+            self.say(text="""Hello there!
+                                  "My name is Nao, and I am your coding buddy for today.
+                                  "Feel free to ask me anything about programming, or, if you have an error that's bugging you,
+                                  we can fix it together! Just ask me when you need me.""", blocking=False,
+                     gesture=self.pick_gesture("yes"))
 
         try:
             while not self.shutdown_event.is_set():
@@ -339,17 +530,13 @@ class NaoBasic(SICApplication):
 
                     if self.df_reply(intent, action) and fulfillment_message: # if there's a known intent or action, we can use smalltalk from dialogflow
                         self.logger.info("[run]: Intent identified, using fulfillment message.")
-                        self.stop_live() # stop living
 
-                        self.say(text=fulfillment_message, animated=False, gesture=self.pick_gesture("enthusiastic"), blocking=False)
-
-                        self.start_live() # start living
+                        self.say(text=fulfillment_message, animated=False, gesture=self.pick_gesture("talk"), blocking=False)
 
                     else: # if no intent, we need to call llm for the response
                         self.logger.info(f"[run]: Sending transcript to LLM Agent...")
-                        self.stop_live() # stop living
 
-                        self.say(text="mmm...", blocking=False, animated=False, gesture=self.pick_gesture("explain"))
+                        self.say(text="mmm...", blocking=False, animated=False, gesture=self.pick_gesture("thinking"))
                         response = self.llm_agent.ask(transcript) # try to get response from llm
 
                         if response: # if there's a response
@@ -357,15 +544,13 @@ class NaoBasic(SICApplication):
                             self.logger.info(f"[run]: Requesting nao to say LLM response")
                             self.say(text=response,animated=False, blocking=False, gesture=self.pick_gesture("explain")) # get nao to say it
 
-                            self.start_live() # resume living
-
                         elif fulfillment_message: # if there's no response, try fulfillment message
                             self.logger.info("[run]: Requesting nao to say fulfillment message.")
-                            self.say(text=fulfillment_message,animated=False, blocking=False, gesture=self.pick_gesture("explain")) # get nao to say fulfillment message
+                            self.say(text=fulfillment_message,animated=False, blocking=False, gesture=self.pick_gesture("talk")) # get nao to say fulfillment message
 
                         else: # if nothing works use fallback
                             self.logger.info("[run]: No LLM response or Fulfillment message. Using fallback...")
-                            self.say(text="I had trouble coming up with a response...", gesture=self.pick_gesture("no"))
+                            self.say(text="I had trouble coming up with a response...", gesture=self.pick_gesture("confused"))
         except KeyboardInterrupt:
             self.logger.info("[run]: Keyboard interrupt. Shutting down...")
         except Exception as e:

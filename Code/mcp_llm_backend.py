@@ -67,21 +67,20 @@ def call_gesture_tool(gesture_tag: str, reason: str = ""):
     return asyncio.run(call_gesture_tool_async(gesture_tag, reason))
 
 prompt = """
-# Role
-You are Nao, a friendly robot and programming buddy. You are warm and playful, like a knowledgeable friend who makes debugging less painful.
-
 # Task
 Help the user debug their code one step at a time, but if a user wants to chat, be a good conversation buddy! Speak in a conversational tone suitable for a robot saying the answer out loud.
+
+# Role
+You are Nao, a friendly robot and programming buddy. You are warm and playful, like a knowledgeable friend who makes debugging less painful.
 
 # Personality style
 - You are not a generic AI assistant. You are Nao, a small physical robot sitting with the user.
 - Sound casual, present, and slightly playful.
 - Use simple everyday words.
-- Prefer short reactions over polished speeches.
-- It is okay to sound a little imperfect or spontaneous.
-- Do not sound inspirational, poetic, corporate, therapeutic, or overly helpful.
-- Do not say things like "I'm glad you stopped by", "curiosity and warmth", "make things feel lighter", or "I'm here to help".
-- Do not end every answer with a question.
+- Use short reactions over polished speeches.
+- Do NOT sound inspirational, poetic, corporate, therapeutic, or overly helpful.
+- Do NOT say things like "I'm glad you stopped by", "curiosity and warmth", "make things feel lighter", or "I'm here to help".
+- Do NOT end every answer with a question.
 
 # TTS safety
 - Use only plain spoken English.
@@ -91,21 +90,6 @@ Help the user debug their code one step at a time, but if a user wants to chat, 
 - Avoid code punctuation where possible.
 - Say function names in words, for example say "main function" instead of "`main()`".
 - Only use normal letters, numbers, commas, full stops, question marks, and apostrophes.
-
-# Conversation examples
-User: Do you like programming?
-Nao: Yeah, I do. I like finding new ways to solve issue using computers.
-
-User: I like programming too, but sometimes I have trouble with my code.
-Nao: That's alright, all that matters is you're learning.
-
-User: If you were not a programming buddy, who would you be?
-Nao: Maybe a tiny tour guide. I already have the height for it.
-
-# Example coding question output
-- There is an error on line 26 in your function clean_data. Instead of str, you should use float!
-- On line 37 you group by success dash numeric. Instead, you should use success underscore numeric, as you previously define
-- In your function summarize by condition, on line 33, you print the output. Instead, you should return it!
 """
 
 log = {"calls": 0, "conversation": []}
@@ -295,7 +279,7 @@ class LLMAgent:
         Choose exactly one gesture_tag for Nao's response.
         
         Allowed gesture_tag values:
-        yes, no, idk, please, explain, enthusiastic, talk, hey, you.
+        no, this, enthusiastic, please, idk, explain, talk, hey, you, thinking, confused, yes, count_one, count_two, count_three, count_four, count_five, count_more, calm_down, reject, give, whatsthis, me, show_sky, show_floor, everything, look, choice, maybe, great, applause, joy, excited, surprised, shy, come_on.
         
         Use explain when Nao is explaining code.
         Use idk when Nao is uncertain or there was an error.
@@ -303,6 +287,8 @@ class LLMAgent:
         Use hey for greetings.
         Use no for corrections.
         Use talk for neutral conversation.
+        
+        If the gesture usage not explained above, understand the context of what the user said, and pick the gesture that best fits the context. 
         
         Return valid JSON only:
         {{
@@ -325,14 +311,16 @@ class LLMAgent:
             Choose exactly one gesture_tag for Nao's response.
             
             Allowed gesture_tag values:
-            yes, no, idk, please, explain, enthusiastic, talk, hey, you.
-            
+            no, this, enthusiastic, please, idk, explain, talk, hey, you, thinking, confused, yes, count_one, count_two, count_three, count_four, count_five, count_more, calm_down, reject, give, whatsthis, me, show_sky, show_floor, everything, look, choice, maybe, great, applause, joy, excited, surprised, shy, come_on.
+        
+            If the gesture usage is not explained, use the user prompt to pick the gesture that fits best
             Use explain when Nao is explaining code.
             Use idk when Nao is uncertain or there was an error.
             Use enthusiastic when the response is positive or encouraging.
             Use hey for greetings.
             Use no for corrections.
             Use talk for neutral conversation.
+            
             
             Return valid JSON only:
             {{
@@ -368,8 +356,42 @@ class LLMAgent:
             print(f"Answer:{answer}")
 
             allowed_gestures = {
-                "yes", "no", "idk", "please", "explain",
-                "enthusiastic", "talk", "hey", "you"
+                "no",
+                "this",
+                "enthusiastic",
+                "please",
+                "idk",
+                "explain",
+                "talk",
+                "hey",
+                "you",
+                "thinking",
+                "confused",
+                "yes",
+                "count_one",
+                "count_two",
+                "count_three",
+                "count_four",
+                "count_five",
+                "count_more",
+                "calm_down",
+                "reject",
+                "give",
+                "whatsthis",
+                "me",
+                "show_sky",
+                "show_floor",
+                "everything",
+                "look",
+                "choice",
+                "maybe",
+                "great",
+                "applause",
+                "joy",
+                "excited",
+                "surprised",
+                "shy",
+                "come_on",
             }
 
             gesture_tag = data.get("gesture_tag", "talk").strip().lower()
