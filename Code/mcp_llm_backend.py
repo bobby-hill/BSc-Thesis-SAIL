@@ -313,7 +313,7 @@ class LLMAgent:
             Allowed gesture_tag values:
             no, this, enthusiastic, please, idk, explain, talk, hey, you, thinking, confused, yes, count_one, count_two, count_three, count_four, count_five, count_more, calm_down, reject, give, whatsthis, me, show_sky, show_floor, everything, look, choice, maybe, great, applause, joy, excited, surprised, shy, come_on.
         
-            If the gesture usage is not explained, use the user prompt to pick the gesture that fits best
+            If the gesture usage is  not explained, use the user prompt to pick the gesture that fits best
             Use explain when Nao is explaining code.
             Use idk when Nao is uncertain or there was an error.
             Use enthusiastic when the response is positive or encouraging.

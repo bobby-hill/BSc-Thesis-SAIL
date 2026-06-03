@@ -465,7 +465,7 @@ class NaoBasic(SICApplication):
         :animated: Whether a filler animation will be used while Nao speaks
         :gesture: Optional gesture path if we want the robot to do a gesture while speaking
         """
-        text = f"\\vol=50\\ \\rspd=93\\ {text}"
+        text = f"\\vol=60\\ \\rspd=93\\ {text}"
         try:
             if animated == False and blocking == False and gesture: # Get nao to perform a gesture while speaking
                 self.logger.info("[say] Requesting Nao to say with gesture..")

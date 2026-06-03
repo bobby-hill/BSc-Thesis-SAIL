@@ -12,7 +12,7 @@ passenger_data = [{"passenger_id":1, "sex":"M", "height":175},
 
 class Passenger:
     def __init__(self, passenger_id, sex, height):
-        self.passenger_id = passenger_i
+        self.passenger_id = passenger_id
         self.sex = sex
         self.height = height
 
