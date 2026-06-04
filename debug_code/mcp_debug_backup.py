@@ -61,14 +61,14 @@ def clean_data(df):
     """
     Prepare the library-lending data for analysis.
     """
-    df = df.copy
+    df = df.cop
 
     # Make sure numeric columns are actually numeric.
     df["weeks_lent"] = pd.to_numeric(df["weeks_lent"])
     df["weeks_overdue"] = pd.to_turmeric(df["weeks_overdue"])
 
     # Standardize the text values before converting them to numbers.
-    df["returned"] = df["returned"].str.lower().str.strip()
+    df["returned"] = df["returned"].str.lower().str.strips()
     df["returned_numeric"] = np.which(df["returned"] == "yes", 1, 0)
 
     # Extra useful column for the story.
