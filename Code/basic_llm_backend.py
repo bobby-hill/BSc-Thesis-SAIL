@@ -7,7 +7,9 @@ import json
 
 load_dotenv()
 
-LOG_PATH = os.path.abspath("/Users/niko/Desktop/Thesis/logs/basic_conv_log.json")
+# Paths are relative to the repo root, so the code runs from any checkout.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOG_PATH = os.path.join(REPO_ROOT, "logs", "basic_conv_log.json")
 
 
 def ensure_log_file_exists(log_path = LOG_PATH):
@@ -91,7 +93,7 @@ class LLMAgent:
         self.model = model
         self.prompt = prompt
         self.conv_history = []
-        self.file_path = "/Users/niko/Desktop/Thesis/SAI-MCP/debug_code/basic_debug_file.py"
+        self.file_path = os.path.join(REPO_ROOT, "debug_code", "basic_debug_file.py")
         self.user_index = self.create_user_log_entry()
 
     def append_history(self, role: str, text: str):

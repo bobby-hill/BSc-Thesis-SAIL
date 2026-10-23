@@ -1,4 +1,9 @@
+import os
+
 from openai import OpenAI
+
+# Paths are relative to the repo root, so the code runs from any checkout.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Prompt generated using promptcowboy.ai
 ### Old prompt for conversational agent
@@ -32,7 +37,7 @@ class LLMAgent:
         self.model = model
         self.prompt = prompt
         self.conv_history = []
-        self.file_path = "/debug_code/basic_debug_file.py"
+        self.file_path = os.path.join(REPO_ROOT, "debug_code", "basic_debug_file.py")
 
     def append_history(self, role: str, text: str):
         self.conv_history.append({"role": role, "content": text})

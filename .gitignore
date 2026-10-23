@@ -9,3 +9,5 @@ nao_ips.txt
 *google-key*.json
 *service-account*.json
 *.json
+__pycache__/
+*.pyc
